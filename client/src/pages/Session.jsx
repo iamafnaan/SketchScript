@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import WhiteboardComponent from '@/components/Whiteboard'
 import CodeEditorComponent from '@/components/CodeEditor'
 import SessionHeader from '@/components/SessionHeader'
+import ParticipantsIndicator from '@/components/ParticipantsIndicator'
 
 const Session = () => {
   const { sessionId } = useParams()
@@ -26,7 +27,7 @@ const Session = () => {
     // Initialize session connection
     const initSession = async () => {
       try {
-        const response = await fetch(`/api/sessions/${sessionId}`)
+        const response = await fetch(`http://localhost:8000/api/sessions/${sessionId}`)
         if (response.ok) {
           const sessionData = await response.json()
           setIsConnected(true)
@@ -64,6 +65,9 @@ const Session = () => {
         isConnected={isConnected}
         onCopyLink={copySessionLink}
       />
+
+      {/* Participants Indicator */}
+      <ParticipantsIndicator sessionId={sessionId} />
 
       {/* Mode Toggle Bar */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">

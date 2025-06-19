@@ -56,23 +56,39 @@ A real-time collaborative whiteboard and code editor built with React, Express, 
 
 2. **Install dependencies**
    ```bash
-   npm run install:all
+   npm install
+   cd client && npm install
+   cd ../server && npm install
+   cd ..
    ```
 
-3. **Start services with Docker**
+### Option 1: One-command startup (Recommended)
+```bash
+./start.sh
+```
+
+### Option 2: Manual startup
+
+1. **Start PostgreSQL**
    ```bash
-   npm run docker:up
+   docker-compose up -d postgres
    ```
 
-4. **Start development servers**
+2. **Start backend server**
    ```bash
-   npm run dev
+   cd server && npm start
    ```
 
-5. **Open your browser**
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:8000
-   - Health Check: http://localhost:8000/api/health
+3. **Start frontend (in new terminal)**
+   ```bash
+   cd client && npm run dev
+   ```
+
+### Access Points
+- 🌐 **Frontend:** http://localhost:3000
+- 🔗 **Backend:** http://localhost:8000  
+- 📊 **Database:** PostgreSQL on port 5432
+- 🩺 **Health Check:** http://localhost:8000/api/health
 
 ## 📁 Project Structure
 
@@ -178,6 +194,38 @@ docker-compose up --build
 - **Resource Limits**: Memory and CPU constraints
 - **Auto-cleanup**: Containers are automatically removed
 - **Input Validation**: All inputs are validated and sanitized
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+1. **Real-time collaboration not working**
+   - Check WebSocket connection at `ws://localhost:8000`
+   - Ensure both frontend and backend are running
+   - Verify session ID is correct
+   - Check browser console for WebSocket connection errors
+
+2. **Code execution fails**
+   - Ensure Docker is running: `docker ps`
+   - Pull required images: `docker pull node:18-alpine python:3.11-alpine`
+   - Check backend logs for execution errors
+
+3. **Database connection errors**
+   - Start PostgreSQL: `docker-compose up -d postgres`
+   - Check connection: `docker-compose ps postgres`
+   - Verify environment variables in `server/.env`
+
+4. **Port conflicts**
+   - Backend (8000): Change `PORT` in `server/.env`
+   - Frontend (3000): Change port in `client/vite.config.js`
+   - Database (5432): Change port in `docker-compose.yml`
+
+### Performance Tips
+
+- Use Chrome or Firefox for best WebSocket performance
+- Close unused tabs to free up resources
+- Restart servers if memory usage is high
+- Use `docker system prune` to clean up unused containers
 
 ## 🚀 Deployment
 
