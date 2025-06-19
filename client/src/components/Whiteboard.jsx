@@ -14,99 +14,202 @@ const WhiteboardComponent = ({ sessionId }) => {
   const ydocRef = useRef(null)
   const providerRef = useRef(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [connectionStatus, setConnectionStatus] = useState('connecting')
+  const isUpdatingFromYjs = useRef(false)
+  const lastUpdateTime = useRef(0)
 
   useEffect(() => {
     // Initialize Yjs document and WebSocket provider
     const ydoc = new Y.Doc()
-    const provider = new WebsocketProvider('ws://localhost:8000', `whiteboard-${sessionId}`, ydoc)
+    
+    // Add more robust WebSocket options
+    const provider = new WebsocketProvider('ws://localhost:8000', `whiteboard-${sessionId}`, ydoc, {
+      connect: true,
+      resyncInterval: 5000,
+      maxBackoffTime: 5000,
+      disableBc: false,
+    })
     
     ydocRef.current = ydoc
     providerRef.current = provider
 
+    // Add timeout for initial connection
+    const connectionTimeout = setTimeout(() => {
+      if (connectionStatus === 'connecting') {
+        console.warn('WebSocket connection timeout, retrying...')
+        setConnectionStatus('retrying')
+        provider.disconnect()
+        setTimeout(() => provider.connect(), 1000)
+      }
+    }, 10000)
+
+    // Handle connection status
     provider.on('status', (event) => {
       console.log('Whiteboard connection status:', event.status)
+      clearTimeout(connectionTimeout)
+      setConnectionStatus(event.status)
       if (event.status === 'connected') {
         setIsLoading(false)
+      } else if (event.status === 'disconnected') {
+        setIsLoading(true)
       }
     })
 
+    // Handle connection errors
+    provider.on('connection-error', (error) => {
+      console.error('Whiteboard connection error:', error)
+      setConnectionStatus('error')
+    })
+
+    // Handle sync events
+    provider.on('sync', (isSynced) => {
+      console.log('Whiteboard sync status:', isSynced ? 'synced' : 'syncing')
+    })
+
     return () => {
-      provider.destroy()
-      ydoc.destroy()
+      clearTimeout(connectionTimeout)
+      clearTimeout(window.whiteboardSaveTimeout)
+      clearTimeout(window.whiteboardYjsTimeout)
+      if (provider) {
+        provider.destroy()
+      }
+      if (ydoc) {
+        ydoc.destroy()
+      }
     }
   }, [sessionId])
 
   useEffect(() => {
-    if (!excalidrawAPI || !ydocRef.current) return
+    if (!excalidrawAPI || !ydocRef.current || connectionStatus !== 'connected') return
 
     const ydoc = ydocRef.current
     const yElements = ydoc.getArray('elements')
-    const yAppState = ydoc.getMap('appState')
+
+    // Load saved session data (prioritize localStorage)
+    const loadSessionData = async () => {
+      try {
+        // First try localStorage for immediate access
+        const localData = localStorage.getItem(`whiteboard-${sessionId}`)
+        if (localData) {
+          const savedData = JSON.parse(localData)
+          if (savedData.elements && savedData.elements.length > 0) {
+            console.log('Loading whiteboard data from localStorage:', savedData.elements.length, 'elements')
+            excalidrawAPI.updateScene({ elements: savedData.elements })
+            // Sync loaded data to Yjs
+            ydoc.transact(() => {
+              yElements.delete(0, yElements.length)
+              yElements.insert(0, savedData.elements)
+            })
+            return
+          }
+        }
+
+        // Fallback to server data if no localStorage data
+        const response = await fetch(`http://localhost:8000/api/sessions/${sessionId}/data/whiteboard`)
+        if (response.ok) {
+          const savedData = await response.json()
+          if (savedData.elements && savedData.elements.length > 0) {
+            console.log('Loading whiteboard data from server:', savedData.elements.length, 'elements')
+            excalidrawAPI.updateScene({ elements: savedData.elements })
+            // Save to localStorage for faster future access
+            localStorage.setItem(`whiteboard-${sessionId}`, JSON.stringify({ 
+              elements: savedData.elements, 
+              appState: savedData.appState || {}, 
+              timestamp: Date.now() 
+            }))
+            // Sync loaded data to Yjs
+            ydoc.transact(() => {
+              yElements.delete(0, yElements.length)
+              yElements.insert(0, savedData.elements)
+            })
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load session data:', error)
+      }
+    }
 
     // Observer for remote changes
-    const handleElementsChange = () => {
+    const handleElementsChange = (event) => {
       const elements = yElements.toArray()
+      console.log('Yjs elements changed:', elements.length, 'origin:', event.origin)
+      
+      // Prevent infinite loops by using a flag
+      if (isUpdatingFromYjs.current) {
+        return
+      }
+      
+      // Only update if this is from a remote source (not local)
+      if (event.origin === ydocRef.current) {
+        return // Skip if this is a local change
+      }
+      
+      isUpdatingFromYjs.current = true
+      setTimeout(() => {
+        isUpdatingFromYjs.current = false
+      }, 100)
+      
+      // Update Excalidraw with new elements
       excalidrawAPI.updateScene({ elements })
     }
 
-    const handleAppStateChange = () => {
-      const appState = yAppState.toJSON()
-      if (Object.keys(appState).length > 0) {
-        excalidrawAPI.updateScene({ appState })
-      }
-    }
-
     yElements.observe(handleElementsChange)
-    yAppState.observe(handleAppStateChange)
-
-    // Load initial state
-    handleElementsChange()
-    handleAppStateChange()
+    loadSessionData()
 
     return () => {
       yElements.unobserve(handleElementsChange)
-      yAppState.unobserve(handleAppStateChange)
     }
-  }, [excalidrawAPI])
+  }, [excalidrawAPI, connectionStatus, sessionId])
 
   const handleChange = (elements, appState) => {
-    if (!ydocRef.current) return
+    if (!ydocRef.current || !elements || connectionStatus !== 'connected') return
+    
+    // Prevent updates while Yjs is updating from remote changes
+    if (isUpdatingFromYjs.current) {
+      return
+    }
 
     const ydoc = ydocRef.current
     const yElements = ydoc.getArray('elements')
-    const yAppState = ydoc.getMap('appState')
 
-    ydoc.transact(() => {
-      // Update elements
-      yElements.delete(0, yElements.length)
-      yElements.insert(0, elements)
+    // Throttle updates to prevent excessive calls
+    const now = Date.now()
+    if (now - lastUpdateTime.current < 50) { // 50ms throttle
+      return
+    }
+    lastUpdateTime.current = now
 
-      // Update app state (excluding some properties that shouldn't be synced)
-      const filteredAppState = {
-        viewBackgroundColor: appState.viewBackgroundColor,
-        currentItemStrokeColor: appState.currentItemStrokeColor,
-        currentItemBackgroundColor: appState.currentItemBackgroundColor,
-        currentItemFillStyle: appState.currentItemFillStyle,
-        currentItemStrokeWidth: appState.currentItemStrokeWidth,
-        currentItemStrokeStyle: appState.currentItemStrokeStyle,
-        currentItemRoughness: appState.currentItemRoughness,
-        currentItemOpacity: appState.currentItemOpacity,
-        currentItemFontFamily: appState.currentItemFontFamily,
-        currentItemFontSize: appState.currentItemFontSize,
-        currentItemTextAlign: appState.currentItemTextAlign,
-        currentItemStartArrowhead: appState.currentItemStartArrowhead,
-        currentItemEndArrowhead: appState.currentItemEndArrowhead,
-        gridSize: appState.gridSize,
-        colorPalette: appState.colorPalette,
+    console.log('Local change detected:', elements.length, 'elements')
+
+    // Save to localStorage immediately for persistence
+    localStorage.setItem(`whiteboard-${sessionId}`, JSON.stringify({ elements, appState, timestamp: Date.now() }))
+
+    // Update Yjs with local changes (debounced to prevent rapid updates)
+    clearTimeout(window.whiteboardYjsTimeout)
+    window.whiteboardYjsTimeout = setTimeout(() => {
+      if (!isUpdatingFromYjs.current) {
+        ydoc.transact(() => {
+          yElements.delete(0, yElements.length)
+          yElements.insert(0, elements)
+        })
       }
+    }, 100)
 
-      yAppState.clear()
-      Object.entries(filteredAppState).forEach(([key, value]) => {
-        if (value !== undefined) {
-          yAppState.set(key, value)
-        }
-      })
-    })
+    // Save to server for cross-session persistence (debounced)
+    const saveSessionData = async () => {
+      try {
+        await fetch(`http://localhost:8000/api/sessions/${sessionId}/data/whiteboard`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ elements, appState })
+        })
+      } catch (error) {
+        console.error('Failed to save session data:', error)
+      }
+    }
+
+    clearTimeout(window.whiteboardSaveTimeout)
+    window.whiteboardSaveTimeout = setTimeout(saveSessionData, 1000)
   }
 
   if (isLoading) {
@@ -115,6 +218,8 @@ const WhiteboardComponent = ({ sessionId }) => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Connecting to whiteboard...</p>
+          <p className="text-xs text-gray-500 mt-2">Status: {connectionStatus}</p>
+          <p className="text-xs text-gray-400 mt-1">Session: {sessionId}</p>
         </div>
       </div>
     )
@@ -131,7 +236,7 @@ const WhiteboardComponent = ({ sessionId }) => {
         </div>
       }>
         <Excalidraw
-          ref={(api) => setExcalidrawAPI(api)}
+          excalidrawAPI={(api) => setExcalidrawAPI(api)}
           onChange={handleChange}
           theme="light"
           initialData={{

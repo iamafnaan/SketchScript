@@ -29,10 +29,28 @@ const CodeEditorComponent = ({ sessionId }) => {
   useEffect(() => {
     // Initialize Yjs document and WebSocket provider
     const ydoc = new Y.Doc()
-    const provider = new WebsocketProvider('ws://localhost:8000', `code-${sessionId}`, ydoc)
+    const provider = new WebsocketProvider('ws://localhost:8000', `code-${sessionId}`, ydoc, {
+      connect: true,
+      resyncInterval: 5000,
+    })
     
     ydocRef.current = ydoc
     providerRef.current = provider
+
+    // Set up output syncing
+    const yOutput = ydoc.getMap('output')
+    const handleOutputChange = () => {
+      const outputData = yOutput.toJSON()
+      if (outputData.success !== undefined) {
+        if (outputData.success) {
+          setOutput(outputData.result || '')
+        } else {
+          setOutput(outputData.error || '')
+        }
+      }
+    }
+
+    yOutput.observe(handleOutputChange)
 
     provider.on('status', (event) => {
       console.log('Code editor connection status:', event.status)
@@ -41,12 +59,27 @@ const CodeEditorComponent = ({ sessionId }) => {
       }
     })
 
+    // Handle connection errors
+    provider.on('connection-error', (error) => {
+      console.error('Code editor connection error:', error)
+    })
+
+    // Handle sync events
+    provider.on('sync', (isSynced) => {
+      console.log('Code editor sync status:', isSynced)
+    })
+
     return () => {
       if (bindingRef.current) {
         bindingRef.current.destroy()
       }
-      provider.destroy()
-      ydoc.destroy()
+      yOutput.unobserve(handleOutputChange)
+      if (provider) {
+        provider.destroy()
+      }
+      if (ydoc) {
+        ydoc.destroy()
+      }
     }
   }, [sessionId])
 
@@ -57,6 +90,46 @@ const CodeEditorComponent = ({ sessionId }) => {
       const ydoc = ydocRef.current
       const ytext = ydoc.getText('monaco')
       
+      // Load saved session data (prioritize localStorage)
+      const loadSessionData = async () => {
+        try {
+          // First try localStorage for immediate access
+          const localData = localStorage.getItem(`code-${sessionId}`)
+          if (localData) {
+            const savedData = JSON.parse(localData)
+            if (savedData.content) {
+              console.log('Loading code data from localStorage')
+              editor.setValue(savedData.content)
+              if (savedData.language) {
+                setLanguage(savedData.language)
+              }
+              return
+            }
+          }
+
+          // Fallback to server data if no localStorage data
+          const response = await fetch(`http://localhost:8000/api/sessions/${sessionId}/data/code`)
+          if (response.ok) {
+            const savedData = await response.json()
+            if (savedData.content) {
+              console.log('Loading code data from server')
+              editor.setValue(savedData.content)
+              if (savedData.language) {
+                setLanguage(savedData.language)
+              }
+              // Save to localStorage for faster future access
+              localStorage.setItem(`code-${sessionId}`, JSON.stringify({ 
+                content: savedData.content, 
+                language: savedData.language,
+                timestamp: Date.now() 
+              }))
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load session code data:', error)
+        }
+      }
+      
       // Create Monaco binding for collaborative editing
       bindingRef.current = new MonacoBinding(
         ytext,
@@ -64,6 +137,36 @@ const CodeEditorComponent = ({ sessionId }) => {
         new Set([editor]),
         providerRef.current.awareness
       )
+
+      // Auto-save code changes
+      editor.onDidChangeModelContent(() => {
+        const content = editor.getValue()
+        
+        // Save to localStorage immediately for persistence
+        localStorage.setItem(`code-${sessionId}`, JSON.stringify({ 
+          content, 
+          language,
+          timestamp: Date.now() 
+        }))
+
+        const saveCodeData = async () => {
+          try {
+            await fetch(`http://localhost:8000/api/sessions/${sessionId}/data/code`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ content, language })
+            })
+          } catch (error) {
+            console.error('Failed to save code data:', error)
+          }
+        }
+
+        // Debounce server saves
+        clearTimeout(window.codeSaveTimeout)
+        window.codeSaveTimeout = setTimeout(saveCodeData, 2000)
+      })
+
+      loadSessionData()
     }
 
     // Configure editor options
@@ -98,7 +201,7 @@ const CodeEditorComponent = ({ sessionId }) => {
     setOutput('Running...')
 
     try {
-      const response = await fetch('/api/execute', {
+      const response = await fetch('http://localhost:8000/api/execute', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -112,16 +215,46 @@ const CodeEditorComponent = ({ sessionId }) => {
 
       const result = await response.json()
       
-      if (response.ok) {
-        setOutput(result.output || 'Code executed successfully (no output)')
+      if (result.success) {
+        const outputText = result.output || 'Code executed successfully (no output)'
+        setOutput(outputText)
         toast.success('Code executed successfully')
+        
+        // Sync output to all participants via Yjs
+        if (ydocRef.current) {
+          const yOutput = ydocRef.current.getMap('output')
+          yOutput.set('result', outputText)
+          yOutput.set('timestamp', Date.now())
+          yOutput.set('language', language)
+          yOutput.set('success', true)
+        }
       } else {
-        setOutput(result.error || 'An error occurred')
+        const errorText = result.error || 'An error occurred'
+        setOutput(errorText)
         toast.error('Execution failed')
+        
+        // Sync error to all participants via Yjs
+        if (ydocRef.current) {
+          const yOutput = ydocRef.current.getMap('output')
+          yOutput.set('error', errorText)
+          yOutput.set('timestamp', Date.now())
+          yOutput.set('language', language)
+          yOutput.set('success', false)
+        }
       }
     } catch (error) {
-      setOutput('Failed to execute code: ' + error.message)
+      const errorText = 'Failed to execute code: ' + error.message
+      setOutput(errorText)
       toast.error('Failed to execute code')
+      
+      // Sync error to all participants via Yjs
+      if (ydocRef.current) {
+        const yOutput = ydocRef.current.getMap('output')
+        yOutput.set('error', errorText)
+        yOutput.set('timestamp', Date.now())
+        yOutput.set('language', language)
+        yOutput.set('success', false)
+      }
     } finally {
       setIsRunning(false)
     }
@@ -152,7 +285,18 @@ const CodeEditorComponent = ({ sessionId }) => {
         <div className="flex items-center gap-4">
           <select
             value={language}
-            onChange={(e) => setLanguage(e.target.value)}
+            onChange={(e) => {
+              const newLanguage = e.target.value
+              setLanguage(newLanguage)
+              
+              // Save language change to localStorage immediately
+              const currentCode = editorRef.current?.getValue() || ''
+              localStorage.setItem(`code-${sessionId}`, JSON.stringify({ 
+                content: currentCode, 
+                language: newLanguage,
+                timestamp: Date.now() 
+              }))
+            }}
             className="px-3 py-1 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
             {languages.map((lang) => (
