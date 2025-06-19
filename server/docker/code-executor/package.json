@@ -1,0 +1,13 @@
+{
+  "name": "sketchscript-code-executor",
+  "version": "1.0.0",
+  "description": "Code execution service for SketchScript",
+  "main": "src/executor-server.js",
+  "scripts": {
+    "start": "node src/executor-server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "dockerode": "^4.0.0"
+  }
+} 
