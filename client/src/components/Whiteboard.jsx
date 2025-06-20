@@ -70,6 +70,25 @@ const WhiteboardComponent = ({ sessionId }) => {
       clearTimeout(connectionTimeout)
       clearTimeout(window.whiteboardSaveTimeout)
       clearTimeout(window.whiteboardYjsTimeout)
+      
+      // Save current state immediately before unmounting
+      if (excalidrawAPI) {
+        try {
+          const scene = excalidrawAPI.getSceneElements()
+          const appState = excalidrawAPI.getAppState()
+          if (scene && scene.length > 0) {
+            localStorage.setItem(`whiteboard-${sessionId}`, JSON.stringify({ 
+              elements: scene, 
+              appState: appState || {}, 
+              timestamp: Date.now() 
+            }))
+            console.log('Saved whiteboard state on unmount:', scene.length, 'elements')
+          }
+        } catch (error) {
+          console.error('Failed to save on unmount:', error)
+        }
+      }
+      
       if (provider) {
         provider.destroy()
       }
@@ -84,6 +103,7 @@ const WhiteboardComponent = ({ sessionId }) => {
 
     const ydoc = ydocRef.current
     const yElements = ydoc.getArray('elements')
+    let hasLoadedData = false
 
     // Load saved session data (prioritize localStorage)
     const loadSessionData = async () => {
@@ -94,12 +114,15 @@ const WhiteboardComponent = ({ sessionId }) => {
           const savedData = JSON.parse(localData)
           if (savedData.elements && savedData.elements.length > 0) {
             console.log('Loading whiteboard data from localStorage:', savedData.elements.length, 'elements')
+            hasLoadedData = true
             excalidrawAPI.updateScene({ elements: savedData.elements })
-            // Sync loaded data to Yjs
-            ydoc.transact(() => {
-              yElements.delete(0, yElements.length)
-              yElements.insert(0, savedData.elements)
-            })
+            // Sync loaded data to Yjs after a small delay to ensure Yjs is ready
+            setTimeout(() => {
+              ydoc.transact(() => {
+                yElements.delete(0, yElements.length)
+                yElements.insert(0, savedData.elements)
+              })
+            }, 200)
             return
           }
         }
@@ -110,6 +133,7 @@ const WhiteboardComponent = ({ sessionId }) => {
           const savedData = await response.json()
           if (savedData.elements && savedData.elements.length > 0) {
             console.log('Loading whiteboard data from server:', savedData.elements.length, 'elements')
+            hasLoadedData = true
             excalidrawAPI.updateScene({ elements: savedData.elements })
             // Save to localStorage for faster future access
             localStorage.setItem(`whiteboard-${sessionId}`, JSON.stringify({ 
@@ -117,11 +141,13 @@ const WhiteboardComponent = ({ sessionId }) => {
               appState: savedData.appState || {}, 
               timestamp: Date.now() 
             }))
-            // Sync loaded data to Yjs
-            ydoc.transact(() => {
-              yElements.delete(0, yElements.length)
-              yElements.insert(0, savedData.elements)
-            })
+            // Sync loaded data to Yjs after a small delay
+            setTimeout(() => {
+              ydoc.transact(() => {
+                yElements.delete(0, yElements.length)
+                yElements.insert(0, savedData.elements)
+              })
+            }, 200)
           }
         }
       } catch (error) {
@@ -136,6 +162,12 @@ const WhiteboardComponent = ({ sessionId }) => {
       
       // Prevent infinite loops by using a flag
       if (isUpdatingFromYjs.current) {
+        return
+      }
+      
+      // Don't overwrite with empty elements if we just loaded data
+      if (!hasLoadedData && elements.length === 0) {
+        console.log('Skipping empty elements update - data not loaded yet')
         return
       }
       
@@ -154,7 +186,26 @@ const WhiteboardComponent = ({ sessionId }) => {
     }
 
     yElements.observe(handleElementsChange)
-    loadSessionData()
+    
+    // Wait for Yjs to sync before loading data
+    if (providerRef.current && providerRef.current.isSynced) {
+      loadSessionData()
+    } else {
+      // Wait for sync event
+      const syncHandler = (isSynced) => {
+        if (isSynced && !hasLoadedData) {
+          loadSessionData()
+        }
+      }
+      providerRef.current?.on('sync', syncHandler)
+      
+      // Also try to load after a timeout as fallback
+      setTimeout(() => {
+        if (!hasLoadedData) {
+          loadSessionData()
+        }
+      }, 500)
+    }
 
     return () => {
       yElements.unobserve(handleElementsChange)

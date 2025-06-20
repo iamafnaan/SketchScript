@@ -5,23 +5,19 @@ import { Button } from '@/components/ui/button'
 import { 
   Code, 
   Paintbrush, 
-  Users, 
-  Copy, 
-  Settings,
-  Play,
   Download
 } from 'lucide-react'
 import { toast } from 'sonner'
 import WhiteboardComponent from '@/components/Whiteboard'
 import CodeEditorComponent from '@/components/CodeEditor'
 import SessionHeader from '@/components/SessionHeader'
-import ParticipantsIndicator from '@/components/ParticipantsIndicator'
 
 const Session = () => {
   const { sessionId } = useParams()
   const [activeMode, setActiveMode] = useState('whiteboard') // 'whiteboard' or 'code'
   const [participants, setParticipants] = useState([])
   const [isConnected, setIsConnected] = useState(false)
+  const [connectionCount, setConnectionCount] = useState(0)
 
   useEffect(() => {
     // Initialize session connection
@@ -31,17 +27,39 @@ const Session = () => {
         if (response.ok) {
           const sessionData = await response.json()
           setIsConnected(true)
+          setConnectionCount(sessionData.connectionCount || 0)
           toast.success('Connected to session!')
         } else {
           toast.error('Session not found')
+          setIsConnected(false)
         }
       } catch (error) {
         toast.error('Failed to connect to session')
         console.error('Error connecting to session:', error)
+        setIsConnected(false)
       }
     }
 
     initSession()
+
+    // Poll for connection count updates every 5 seconds
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`http://localhost:8000/api/sessions/${sessionId}`)
+        if (response.ok) {
+          const sessionData = await response.json()
+          setConnectionCount(sessionData.connectionCount || 0)
+          setIsConnected(true)
+        } else {
+          setIsConnected(false)
+        }
+      } catch (error) {
+        console.error('Error polling session status:', error)
+        setIsConnected(false)
+      }
+    }, 5000)
+
+    return () => clearInterval(pollInterval)
   }, [sessionId])
 
   const copySessionLink = () => {
@@ -66,8 +84,7 @@ const Session = () => {
         onCopyLink={copySessionLink}
       />
 
-      {/* Participants Indicator */}
-      <ParticipantsIndicator sessionId={sessionId} />
+
 
       {/* Mode Toggle Bar */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">
@@ -93,18 +110,9 @@ const Session = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          {activeMode === 'code' && (
-            <Button size="sm" variant="outline">
-              <Play className="h-4 w-4 mr-2" />
-              Run Code
-            </Button>
-          )}
           <Button size="sm" variant="outline">
             <Download className="h-4 w-4 mr-2" />
             Export
-          </Button>
-          <Button size="sm" variant="ghost">
-            <Settings className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -148,8 +156,12 @@ const Session = () => {
           <span>Session: {sessionId}</span>
         </div>
         <div className="flex items-center gap-2">
-          <Users className="h-4 w-4" />
-          <span>{participants.length} participants</span>
+          <div className={`w-2 h-2 rounded-full ${connectionCount > 0 ? 'bg-blue-500' : 'bg-gray-400'}`} />
+          <span>
+            {connectionCount === 0 ? 'No connections' : 
+             connectionCount === 1 ? '1 person connected' : 
+             `${connectionCount} people connected`}
+          </span>
         </div>
       </div>
     </div>

@@ -2,15 +2,17 @@ import React from 'react'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { 
-  Users, 
   Copy, 
   Home, 
-  Settings, 
   Share2,
-  Circle
+  Moon,
+  Sun
 } from 'lucide-react'
+import { useTheme } from '@/contexts/ThemeContext'
 
 const SessionHeader = ({ sessionId, participants, isConnected, onCopyLink }) => {
+  const { theme, toggleTheme } = useTheme()
+  
   const goHome = () => {
     window.location.href = '/'
   }
@@ -52,38 +54,6 @@ const SessionHeader = ({ sessionId, participants, isConnected, onCopyLink }) => 
       </div>
 
       <div className="flex items-center gap-3">
-        {/* Participants */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-2"
-        >
-          <div className="flex items-center gap-1">
-            {participants.slice(0, 3).map((participant, index) => (
-              <div
-                key={participant.id || index}
-                className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium"
-                style={{ backgroundColor: participant.color || '#3b82f6' }}
-                title={participant.name || `User ${index + 1}`}
-              >
-                {(participant.name || `U${index + 1}`).charAt(0).toUpperCase()}
-              </div>
-            ))}
-            {participants.length > 3 && (
-              <div className="w-8 h-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-sm font-medium text-muted-foreground">
-                +{participants.length - 3}
-              </div>
-            )}
-          </div>
-          
-          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-            <Users className="h-4 w-4" />
-            <span>{participants.length}</span>
-          </div>
-        </motion.div>
-
-        <div className="h-6 w-px bg-border" />
-
         {/* Action Buttons */}
         <motion.div
           initial={{ opacity: 0, x: 20 }}
@@ -103,9 +73,11 @@ const SessionHeader = ({ sessionId, participants, isConnected, onCopyLink }) => 
           <Button
             variant="ghost"
             size="sm"
+            onClick={toggleTheme}
             className="flex items-center gap-2"
+            title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
           >
-            <Settings className="h-4 w-4" />
+            {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
           </Button>
         </motion.div>
       </div>
