@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
+import config from '@/config'
 
 const WebSocketTest = ({ sessionId }) => {
   const [status, setStatus] = useState('connecting')
@@ -9,7 +10,7 @@ const WebSocketTest = ({ sessionId }) => {
 
   useEffect(() => {
     const ydoc = new Y.Doc()
-    const provider = new WebsocketProvider('ws://localhost:8000', `test-${sessionId}`, ydoc)
+    const provider = new WebsocketProvider(config.WS_URL, `test-${sessionId}`, ydoc)
     const yarray = ydoc.getArray('messages')
 
     provider.on('status', (event) => {
@@ -35,7 +36,7 @@ const WebSocketTest = ({ sessionId }) => {
     if (!input.trim()) return
     
     const ydoc = new Y.Doc()
-    const provider = new WebsocketProvider('ws://localhost:8000', `test-${sessionId}`, ydoc)
+    const provider = new WebsocketProvider(config.WS_URL, `test-${sessionId}`, ydoc)
     const yarray = ydoc.getArray('messages')
     
     provider.on('status', (event) => {
@@ -90,4 +91,4 @@ const WebSocketTest = ({ sessionId }) => {
   )
 }
 
-export default WebSocketTest 
+export default WebSocketTest
