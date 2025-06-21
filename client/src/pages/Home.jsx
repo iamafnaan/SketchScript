@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Plus, Users, Code, Paintbrush, Moon, Sun } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTheme } from '@/contexts/ThemeContext'
+import config from '@/config'
 
 const Home = () => {
   const [sessionId, setSessionId] = useState('')
@@ -15,7 +16,7 @@ const Home = () => {
   const createSession = async () => {
     setIsCreating(true)
     try {
-      const response = await fetch('/api/sessions', {
+      const response = await fetch(`${config.API_URL}/api/sessions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -46,7 +47,7 @@ const Home = () => {
 
     try {
       // Validate session exists before navigating
-      const response = await fetch(`http://localhost:8000/api/sessions/${trimmedSessionId}`)
+      const response = await fetch(`${config.API_URL}/api/sessions/${trimmedSessionId}`)
       if (response.ok) {
         navigate(`/session/${trimmedSessionId}`)
       } else if (response.status === 404) {
@@ -180,4 +181,4 @@ const Home = () => {
   )
 }
 
-export default Home 
+export default Home

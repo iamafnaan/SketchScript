@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import WhiteboardComponent from '@/components/Whiteboard'
 import CodeEditorComponent from '@/components/CodeEditor'
 import SessionHeader from '@/components/SessionHeader'
+import config from '@/config'
 
 const Session = () => {
   const { sessionId } = useParams()
@@ -23,7 +24,7 @@ const Session = () => {
     // Initialize session connection
     const initSession = async () => {
       try {
-        const response = await fetch(`http://localhost:8000/api/sessions/${sessionId}`)
+        const response = await fetch(`${config.API_URL}/api/sessions/${sessionId}`)
         if (response.ok) {
           const sessionData = await response.json()
           setIsConnected(true)
@@ -45,7 +46,7 @@ const Session = () => {
     // Poll for connection count updates every 5 seconds
     const pollInterval = setInterval(async () => {
       try {
-        const response = await fetch(`http://localhost:8000/api/sessions/${sessionId}`)
+        const response = await fetch(`${config.API_URL}/api/sessions/${sessionId}`)
         if (response.ok) {
           const sessionData = await response.json()
           setConnectionCount(sessionData.connectionCount || 0)
@@ -83,8 +84,6 @@ const Session = () => {
         isConnected={isConnected}
         onCopyLink={copySessionLink}
       />
-
-
 
       {/* Mode Toggle Bar */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">
@@ -168,4 +167,4 @@ const Session = () => {
   )
 }
 
-export default Session 
+export default Session

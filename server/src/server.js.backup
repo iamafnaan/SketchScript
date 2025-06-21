@@ -15,19 +15,12 @@ require('dotenv').config()
 const app = express()
 const server = http.createServer(app)
 
-// Configure CORS for production
-const corsOrigins = process.env.CORS_ORIGINS 
-  ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
-  : ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173']
-
-console.log('CORS origins configured:', corsOrigins)
-
 // Middleware
 app.use(helmet({
   crossOriginEmbedderPolicy: false
 }))
 app.use(cors({
-  origin: corsOrigins,
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
   credentials: true
 }))
 app.use(express.json())
@@ -214,46 +207,39 @@ app.post('/api/sessions/:sessionId/data/:type', (req, res) => {
 })
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/api/health', (req, res) => {
+  const allSessions = sessionManager.getAllSessions()
   res.json({ 
-    status: 'ok', 
+    status: 'healthy', 
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    activeSessions: sessionManager.getActiveSessionCount()
+    activeSessions: Object.keys(allSessions).length,
+    sessions: allSessions
   })
 })
 
-// Production: Serve static files from client build
-if (process.env.NODE_ENV === 'production') {
-  const path = require('path')
-  const clientPath = path.join(__dirname, '../../client/dist')
-  
-  // Serve static files
-  app.use(express.static(clientPath))
-  
-  // Handle React Router (return index.html for all non-API routes)
-  app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api/')) {
-      res.sendFile(path.join(clientPath, 'index.html'))
-    } else {
-      res.status(404).json({ error: 'API endpoint not found' })
-    }
-  })
-}
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err)
+  res.status(500).json({ error: 'Internal server error' })
+})
 
-// Start server
+// 404 handler
+app.use('*', (req, res) => {
+  res.status(404).json({ error: 'Not found' })
+})
+
+const PORT = process.env.PORT || 8000
+
+// Initialize database and start server
 async function startServer() {
   try {
-    // Initialize database
-    await db.init()
+    await db.initialize()
     console.log('Database initialized successfully')
     
-    const PORT = process.env.PORT || 8000
-    server.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 SketchScript server running on port ${PORT}`)
-      console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`)
-      console.log(`📊 Database: ${process.env.DATABASE_URL ? 'Connected' : 'Not configured'}`)
-      console.log(`🔄 CORS Origins: ${corsOrigins.join(', ')}`)
+    server.listen(PORT, () => {
+      console.log(`SketchScript server running on port ${PORT}`)
+      console.log(`WebSocket server ready for Yjs collaboration`)
+      console.log(`Health check available at http://localhost:${PORT}/api/health`)
     })
   } catch (error) {
     console.error('Failed to start server:', error)
@@ -262,3 +248,13 @@ async function startServer() {
 }
 
 startServer()
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully')
+  server.close(() => {
+    console.log('Server closed')
+    db.close()
+    process.exit(0)
+  })
+}) 

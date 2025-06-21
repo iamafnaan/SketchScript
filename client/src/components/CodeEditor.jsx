@@ -6,6 +6,7 @@ import { MonacoBinding } from 'y-monaco'
 import { Button } from '@/components/ui/button'
 import { Play, Square, FileText, Settings } from 'lucide-react'
 import { toast } from 'sonner'
+import config from '@/config'
 
 const CodeEditorComponent = ({ sessionId }) => {
   const editorRef = useRef(null)
@@ -29,7 +30,7 @@ const CodeEditorComponent = ({ sessionId }) => {
   useEffect(() => {
     // Initialize Yjs document and WebSocket provider
     const ydoc = new Y.Doc()
-    const provider = new WebsocketProvider('ws://localhost:8000', `code-${sessionId}`, ydoc, {
+    const provider = new WebsocketProvider(config.WS_URL, `code-${sessionId}`, ydoc, {
       connect: true,
       resyncInterval: 5000,
     })
@@ -108,7 +109,7 @@ const CodeEditorComponent = ({ sessionId }) => {
           }
 
           // Fallback to server data if no localStorage data
-          const response = await fetch(`http://localhost:8000/api/sessions/${sessionId}/data/code`)
+          const response = await fetch(`${config.API_URL}/api/sessions/${sessionId}/data/code`)
           if (response.ok) {
             const savedData = await response.json()
             if (savedData.content) {
@@ -151,7 +152,7 @@ const CodeEditorComponent = ({ sessionId }) => {
 
         const saveCodeData = async () => {
           try {
-            await fetch(`http://localhost:8000/api/sessions/${sessionId}/data/code`, {
+            await fetch(`${config.API_URL}/api/sessions/${sessionId}/data/code`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ content, language })
@@ -201,7 +202,7 @@ const CodeEditorComponent = ({ sessionId }) => {
     setOutput('Running...')
 
     try {
-      const response = await fetch('http://localhost:8000/api/execute', {
+      const response = await fetch(`${config.API_URL}/api/execute`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -384,4 +385,4 @@ const CodeEditorComponent = ({ sessionId }) => {
   )
 }
 
-export default CodeEditorComponent 
+export default CodeEditorComponent
