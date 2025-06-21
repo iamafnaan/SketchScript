@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, Suspense } from 'react'
 import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
+import config from '@/config'
 
 // Dynamic import for Excalidraw to avoid SSR issues
 const Excalidraw = React.lazy(() => 
@@ -23,7 +24,7 @@ const WhiteboardComponent = ({ sessionId }) => {
     const ydoc = new Y.Doc()
     
     // Add more robust WebSocket options
-    const provider = new WebsocketProvider('ws://localhost:8000', `whiteboard-${sessionId}`, ydoc, {
+    const provider = new WebsocketProvider(config.WS_URL, `whiteboard-${sessionId}`, ydoc, {
       connect: true,
       resyncInterval: 5000,
       maxBackoffTime: 5000,
@@ -128,7 +129,7 @@ const WhiteboardComponent = ({ sessionId }) => {
         }
 
         // Fallback to server data if no localStorage data
-        const response = await fetch(`http://localhost:8000/api/sessions/${sessionId}/data/whiteboard`)
+        const response = await fetch(`${config.API_URL}/api/sessions/${sessionId}/data/whiteboard`)
         if (response.ok) {
           const savedData = await response.json()
           if (savedData.elements && savedData.elements.length > 0) {
@@ -249,7 +250,7 @@ const WhiteboardComponent = ({ sessionId }) => {
     // Save to server for cross-session persistence (debounced)
     const saveSessionData = async () => {
       try {
-        await fetch(`http://localhost:8000/api/sessions/${sessionId}/data/whiteboard`, {
+        await fetch(`${config.API_URL}/api/sessions/${sessionId}/data/whiteboard`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ elements, appState })
@@ -314,4 +315,4 @@ const WhiteboardComponent = ({ sessionId }) => {
   )
 }
 
-export default WhiteboardComponent 
+export default WhiteboardComponent
