@@ -174,7 +174,7 @@ const Home = () => {
           transition={{ duration: 0.5, delay: 0.6 }}
           className="text-center mt-8 text-gray-500 dark:text-gray-400"
         >
-          <p>Built with React, Express, Yjs, and WebSockets</p>
+         
         </motion.div>
       </motion.div>
     </div>
