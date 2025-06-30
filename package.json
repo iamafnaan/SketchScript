@@ -13,10 +13,7 @@
     "start": "cd server && npm start",
     "install:all": "npm install && cd client && npm install && cd ../server && npm install",
     "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down",
-    "render:install": "cd client && npm ci && cd ../server && npm ci",
-    "render:build": "cd client && npm run build",
-    "render:start": "cd server && npm start"
+    "docker:down": "docker-compose down"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

@@ -1,19 +1,18 @@
 #!/bin/bash
 
-echo "🚀 Starting SketchScript..."
+echo "🚀 Starting SketchScript with Supabase..."
 
 # Kill any existing processes
 echo "🧹 Cleaning up existing processes..."
 pkill -f "node.*server" 2>/dev/null || true
 pkill -f "vite" 2>/dev/null || true
 
-# Start PostgreSQL
-echo "📊 Starting PostgreSQL..."
-docker-compose up -d postgres
+# Note: No longer starting PostgreSQL - using Supabase instead
+echo "📊 Using Supabase PostgreSQL (cloud database)..."
 
-# Wait for PostgreSQL to be ready
-echo "⏳ Waiting for PostgreSQL to be ready..."
-sleep 5
+# Start code executor service only (for Docker-based code execution)
+echo "🐳 Starting code executor service..."
+docker-compose up -d code-executor
 
 # Start backend server
 echo "🖥️  Starting backend server..."
@@ -24,7 +23,7 @@ BACKEND_PID=$!
 echo "⏳ Waiting for backend to be ready..."
 sleep 3
 for i in {1..10}; do
-  if curl -s http://localhost:8000/api/health > /dev/null; then
+  if curl -s http://localhost:8000/health > /dev/null; then
     echo "✅ Backend server is ready!"
     break
   fi
@@ -42,14 +41,18 @@ echo "⏳ Waiting for frontend to be ready..."
 sleep 5
 
 echo ""
-echo "✅ SketchScript is now running!"
+echo "✅ SketchScript is now running with Supabase!"
 echo ""
 echo "🌐 Frontend: http://localhost:3000"
 echo "🔗 Backend:  http://localhost:8000"
-echo "📊 Database: PostgreSQL on port 5432"
+echo "📊 Database: Supabase PostgreSQL (cloud)"
 echo "🔗 WebSockets: ws://localhost:8000"
 echo ""
 echo "🎯 Open http://localhost:3000 in your browser to start collaborating!"
+echo ""
+echo "📝 Make sure to set up your .env files with Supabase credentials!"
+echo "   Server: server/.env with DATABASE_URL"
+echo "   Client: client/.env with VITE_SUPABASE_* variables"
 echo ""
 echo "Press Ctrl+C to stop all services"
 

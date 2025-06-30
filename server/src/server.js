@@ -1,3 +1,6 @@
+// Load environment variables FIRST - before any other imports
+require('dotenv').config()
+
 const express = require('express')
 const http = require('http')
 const WebSocket = require('ws')
@@ -5,12 +8,9 @@ const cors = require('cors')
 const helmet = require('helmet')
 const { v4: uuidv4 } = require('uuid')
 const { setupWSConnection } = require('y-websocket/bin/utils')
-const db = require('./database')
+const db = require('./supabase')
 const codeExecutor = require('./codeExecutor')
 const sessionManager = require('./sessionManager')
-
-// Load environment variables
-require('dotenv').config()
 
 const app = express()
 const server = http.createServer(app)
@@ -219,7 +219,8 @@ app.get('/health', (req, res) => {
     status: 'ok', 
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
-    activeSessions: sessionManager.getActiveSessionCount()
+    activeSessions: sessionManager.activeSessions.size,
+    database: 'Supabase Connected'
   })
 })
 
@@ -245,8 +246,8 @@ if (process.env.NODE_ENV === 'production') {
 async function startServer() {
   try {
     // Initialize database
-    await db.init()
-    console.log('Database initialized successfully')
+    await db.initialize()
+    console.log('Supabase database initialized successfully')
     
     const PORT = process.env.PORT || 8000
     server.listen(PORT, '0.0.0.0', () => {
