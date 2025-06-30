@@ -4,8 +4,8 @@ A real-time collaborative whiteboard and code editor built with React, Express, 
 
 ## ✨ Features
 
-- **🎨 Interactive Whiteboard**: Powered by Excalidraw with real-time collaboration
-- **💻 Code Editor**: Monaco Editor with syntax highlighting for multiple languages
+- **🎨 Interactive Whiteboard**: Powered with real-time collaboration
+- **💻 Code Editor**: Editor with syntax highlighting for multiple languages
 - **🔄 Real-time Sync**: Yjs + WebSockets for instant collaboration
 - **🐳 Docker Code Execution**: Secure sandboxed code execution for multiple languages
 - **🎯 Session Management**: Create and join sessions with shareable links
@@ -20,10 +20,8 @@ A real-time collaborative whiteboard and code editor built with React, Express, 
 - **Vite** - Build tool and dev server
 - **Tailwind CSS** - Styling framework
 - **Framer Motion** - Animations
-- **Excalidraw** - Whiteboard component
-- **Monaco Editor** - Code editor
 - **Yjs** - CRDT for real-time collaboration
-- **Geist Mono** - Typography
+
 
 ### Backend
 - **Express.js** - Web server
@@ -69,10 +67,7 @@ A real-time collaborative whiteboard and code editor built with React, Express, 
 
 ### Option 2: Manual startup
 
-1. **Start PostgreSQL**
-   ```bash
-   docker-compose up -d postgres
-   ```
+1. **Set up environment variables** (see Configuration section below)
 
 2. **Start backend server**
    ```bash
@@ -87,33 +82,10 @@ A real-time collaborative whiteboard and code editor built with React, Express, 
 ### Access Points
 - 🌐 **Frontend:** http://localhost:3000
 - 🔗 **Backend:** http://localhost:8000  
-- 📊 **Database:** PostgreSQL on port 5432
-- 🩺 **Health Check:** http://localhost:8000/api/health
+- 📊 **Database:** Supabase PostgreSQL (cloud)
+- 🩺 **Health Check:** http://localhost:8000/health
 
-## 📁 Project Structure
 
-```
-SketchScript/
-├── client/                 # React frontend
-│   ├── src/
-│   │   ├── components/     # React components
-│   │   ├── pages/          # Page components
-│   │   ├── lib/           # Utilities
-│   │   └── main.jsx       # Entry point
-│   ├── package.json
-│   └── vite.config.js
-├── server/                 # Express backend
-│   ├── src/
-│   │   ├── server.js      # Main server
-│   │   ├── database.js    # Database operations
-│   │   └── codeExecutor.js # Code execution
-│   ├── db/
-│   │   └── init.sql       # Database schema
-│   ├── docker/            # Docker configurations
-│   └── package.json
-├── docker-compose.yml     # Service orchestration
-└── package.json          # Workspace scripts
-```
 
 ## 🎯 Usage
 
@@ -146,6 +118,7 @@ SketchScript/
 
 ### Environment Variables
 
+**Server Configuration:**
 Copy `server/env.example` to `server/.env` and configure:
 
 ```env
@@ -153,23 +126,34 @@ Copy `server/env.example` to `server/.env` and configure:
 PORT=8000
 NODE_ENV=development
 
-# Database
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=sketchscript
-DB_USER=postgres
-DB_PASSWORD=password
+# Supabase Client Configuration
+SUPABASE_URL=your-url
+SUPABASE_ANON_KEY= your-key
 
 # Security
 CORS_ORIGIN=http://localhost:3000
 ```
 
+**Client Configuration:**
+Copy `client/.env.example` to `client/.env` and configure:
+
+```env
+# API URLs
+VITE_API_URL=http://localhost:8000
+VITE_WS_URL=ws://localhost:8000
+
+# Supabase
+VITE_SUPABASE_URL= your-URL
+VITE_SUPABASE_ANON_KEY= your-KEY
+```
+
 ### Docker Services
 
-The application uses these Docker services:
+The application now uses these Docker services:
 
-- **PostgreSQL**: Session and user data storage
 - **Code Executor**: Sandboxed code execution environment
+
+**Database**: Now uses **Supabase PostgreSQL** (cloud) instead of local Docker PostgreSQL
 
 ## 🐳 Docker Commands
 
@@ -211,9 +195,10 @@ docker-compose up --build
    - Check backend logs for execution errors
 
 3. **Database connection errors**
-   - Start PostgreSQL: `docker-compose up -d postgres`
-   - Check connection: `docker-compose ps postgres`
-   - Verify environment variables in `server/.env`
+   - Check Supabase credentials in `server/.env`
+   - Verify DATABASE_URL is correctly formatted
+   - Check Supabase dashboard for database status
+   - Ensure database password is correct
 
 4. **Port conflicts**
    - Backend (8000): Change `PORT` in `server/.env`
@@ -309,9 +294,6 @@ cd server && npm test
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🆘 Troubleshooting
 
@@ -351,13 +333,9 @@ docker logs sketchscript_postgres_1
 - 🐛 [Issue Tracker](issues/)
 - 💬 [Discussions](discussions/)
 
-## 🎉 Acknowledgments
 
-- **Excalidraw** - Amazing whiteboard component
-- **Monaco Editor** - Powerful code editor
-- **Yjs** - Excellent CRDT implementation
-- **React** & **Express** - Solid foundation frameworks
 
----
 
-**Built with ❤️ for collaborative coding and sketching** 
+
+
+**Contact me if you want to collaborate @ahmedafnaan44@gmail.com**

@@ -10,18 +10,19 @@
     "test": "echo 'No tests specified'"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "ws": "^8.14.2",
-    "yjs": "^13.6.8",
-    "y-websocket": "^2.0.4",
-    "pg": "^8.11.3",
+    "@supabase/supabase-js": "^2.50.2",
     "cors": "^2.8.5",
-    "helmet": "^7.1.0",
-    "dotenv": "^16.3.1",
-    "uuid": "^9.0.1",
     "dockerode": "^4.0.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "helmet": "^7.1.0",
+    "pg": "^8.11.3",
+    "stream-buffers": "^3.0.2",
     "tar-stream": "^3.1.6",
-    "stream-buffers": "^3.0.2"
+    "uuid": "^9.0.1",
+    "ws": "^8.14.2",
+    "y-websocket": "^2.0.4",
+    "yjs": "^13.6.8"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
@@ -35,4 +36,4 @@
   ],
   "author": "SketchScript",
   "license": "MIT"
-} 
+}

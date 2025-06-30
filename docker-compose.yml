@@ -1,20 +1,7 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: sketchscript
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./server/db/init.sql:/docker-entrypoint-initdb.d/init.sql
-    networks:
-      - sketchscript_network
-
+  # Code executor service for running code in sandboxed containers
   code-executor:
     build:
       context: ./server/docker/code-executor
@@ -27,8 +14,24 @@ services:
       - sketchscript_network
     privileged: true
 
-volumes:
-  postgres_data:
+# Removed PostgreSQL service - now using Supabase
+# postgres:
+#   image: postgres:15
+#   environment:
+#     POSTGRES_DB: sketchscript
+#     POSTGRES_USER: postgres
+#     POSTGRES_PASSWORD: password
+#   ports:
+#     - "5432:5432"
+#   volumes:
+#     - postgres_data:/var/lib/postgresql/data
+#     - ./server/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+#   networks:
+#     - sketchscript_network
+
+# No longer need postgres_data volume since using Supabase
+# volumes:
+#   postgres_data:
 
 networks:
   sketchscript_network:
